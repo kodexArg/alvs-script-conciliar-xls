@@ -154,21 +154,37 @@ def generate_output(result_df: DataFrame, output_entry: tk.Entry, log_widget: sc
             messagebox.showerror("Error", f"Error al guardar el archivo: {e}")
 
 
+
 def run_process(cob_entry: tk.Entry, mp_entry: tk.Entry, planilla_entry: tk.Entry, output_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
     """
     Ejecuta el flujo principal de la aplicación:
     1. Importa los archivos seleccionados por el usuario como DataFrames.
     2. Llama a la lógica principal para procesar los DataFrames.
-    3. Genera un archivo XLSX con el DataFrame resultante.
+    3. Genera un archivo XLSX con el DataFrame resultante y otro con los registros no conciliados.
     """
     df1, df2, df3 = import_files(cob_entry, mp_entry, planilla_entry, log_widget)
     if df1 is not None and df2 is not None:
         log_message(log_widget, "Iniciando procesado de ficheros...")
         
-        result_df: DataFrame = process_logic(log_widget, df1, df2, df3)
+        result_df, df_no_conciliados = process_logic(log_widget, df1, df2, df3)
         
         generate_output(result_df, output_entry, log_widget)
+        generate_no_conciliados_output(df_no_conciliados, output_entry, log_widget)
+        
         log_message(log_widget, "Proceso finalizado.")
+
+def generate_no_conciliados_output(df_no_conciliados: DataFrame, output_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
+    """Guarda el DataFrame de registros no conciliados en un archivo XLSX."""
+    save_path: str = output_entry.get()
+    no_conciliados_path = os.path.join(os.path.dirname(save_path), 'no_conciliados.xlsx')
+    
+    if save_path:
+        try:
+            df_no_conciliados.to_excel(no_conciliados_path, index=False)
+            log_message(log_widget, f"Archivo de no conciliados guardado exitosamente en {no_conciliados_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al guardar el archivo de no conciliados: {e}")
+
 
 
 def run_application() -> None:

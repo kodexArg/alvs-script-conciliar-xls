@@ -97,8 +97,9 @@ def finalizar_resultado(df_result: DataFrame) -> DataFrame:
     df_result.loc[df_result['Conciliación'] == '', 'Conciliación'] = 'No Conciliado'
     return df_result
 
-def process_logic(log_widget: tk.Widget, df_cobranzas: DataFrame, df_mercado_pago: DataFrame, df_planilla_1: DataFrame = None) -> DataFrame:
-    """Proceso principal que coordina la conciliación entre Cobranzas Electrónicas, Mercado Pago y Planilla 1."""
+def process_logic(log_widget: tk.Widget, df_cobranzas: DataFrame, df_mercado_pago: DataFrame, df_planilla_1: DataFrame = None) -> tuple[DataFrame, DataFrame]:
+    """Proceso principal que coordina la conciliación entre Cobranzas Electrónicas, Mercado Pago y Planilla 1.
+    Retorna tanto el resultado conciliado como los no conciliados en Mercado Pago."""
     log_message(log_widget, "Iniciando la conciliación.")
     
     df_result = inicializar_df_resultado(df_cobranzas)
@@ -119,4 +120,5 @@ def process_logic(log_widget: tk.Widget, df_cobranzas: DataFrame, df_mercado_pag
     
     log_message(log_widget, "Conciliación finalizada.")
     
-    return df_result
+    return df_result, df_mercado_pago_residuo
+
