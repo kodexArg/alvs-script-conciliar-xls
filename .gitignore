@@ -1,0 +1,23 @@
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Entornos virtuales
+venv/
+.env/
+.venv/
+
+# Configuraciones de editor/IDE
+.vscode/
+.idea/
+
+# Archivos de logs
+*.log
+
+# Directorios específicos del proyecto
+excels/
+pb/
+
