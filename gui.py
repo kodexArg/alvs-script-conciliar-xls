@@ -119,59 +119,56 @@ def import_planilla_1(file_path: str, log_widget: scrolledtext.ScrolledText) -> 
         return None
 
 
-def import_files(cob_entry: tk.Entry, mp_entry: tk.Entry, planilla_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> tuple[DataFrame | None, DataFrame | None, DataFrame | None]:
-    """Importa los archivos XLSX seleccionados por el usuario y devuelve DataFrames correspondientes."""
+def import_files(mp_entry: tk.Entry, planilla_entry: tk.Entry, cob_km_entry: tk.Entry, cob_bovedas_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> tuple[DataFrame | None, DataFrame | None, DataFrame | None, DataFrame | None]:
+    """Importa los archivos XLSX seleccionados por el usuario y devuelve los DataFrames correspondientes."""
     log_message(log_widget, "Importando archivos...")
 
-    file1: str = cob_entry.get()
-    file2: str = mp_entry.get()
-    file3: str = planilla_entry.get()
+    file_mp = mp_entry.get()
+    file_planilla = planilla_entry.get()
+    file_km = cob_km_entry.get()
+    file_bovedas = cob_bovedas_entry.get()
 
-    if file1 and file2:
+    if file_mp and file_planilla and file_km and file_bovedas:
         try:
-            df1: DataFrame = import_cobranza_electronica(file1, log_widget)
-            df2: DataFrame = import_mercado_pago(file2, log_widget)
-            
-            df3: DataFrame | None = None
-            if file3:
-                df3 = import_planilla_1(file3, log_widget)
-            
-            return df1, df2, df3
+            df_mp = import_mercado_pago(file_mp, log_widget)
+            df_planilla = import_planilla_1(file_planilla, log_widget)
+            df_cob_km = import_cobranza_electronica(file_km, log_widget)
+            df_cob_bovedas = import_cobranza_electronica(file_bovedas, log_widget)
+            return df_mp, df_planilla, df_cob_km, df_cob_bovedas
         except Exception as e:
             messagebox.showerror("Error", f"Error al importar archivos: {e}")
-            return None, None, None
+            return None, None, None, None
 
 
-def generate_output(result_df: DataFrame, output_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
+
+def generate_output(result_df: DataFrame, save_path: str, log_widget: scrolledtext.ScrolledText) -> None:
     """Guarda el DataFrame resultante en un archivo XLSX en la ubicación seleccionada por el usuario."""
-    save_path: str = output_entry.get()
-    
     if save_path:
         try:
             result_df.to_excel(save_path, index=False)
-            log_message(log_widget, f"Archivo conciliado guardado exitosamente en {save_path}")
+            log_message(log_widget, f"Archivo guardado exitosamente en {save_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar el archivo: {e}")
 
 
-
-def run_process(cob_entry: tk.Entry, mp_entry: tk.Entry, planilla_entry: tk.Entry, output_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
+def run_process(mp_entry: tk.Entry, planilla_entry: tk.Entry, cob_km_entry: tk.Entry, cob_bovedas_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
     """
     Ejecuta el flujo principal de la aplicación:
     1. Importa los archivos seleccionados por el usuario como DataFrames.
     2. Llama a la lógica principal para procesar los DataFrames.
-    3. Genera un archivo XLSX con el DataFrame resultante y otro con los registros no conciliados.
+    3. Genera un archivo XLSX con el DataFrame resultante.
     """
-    df1, df2, df3 = import_files(cob_entry, mp_entry, planilla_entry, log_widget)
-    if df1 is not None and df2 is not None:
+    df_mp, df_planilla, df_cob_km, df_cob_bovedas = import_files(mp_entry, planilla_entry, cob_km_entry, cob_bovedas_entry, log_widget)
+    if df_mp is not None and df_planilla is not None and df_cob_km is not None and df_cob_bovedas is not None:
         log_message(log_widget, "Iniciando procesado de ficheros...")
         
-        result_df, df_no_conciliados = process_logic(log_widget, df1, df2, df3)
+        df_result = process_logic(log_widget, df_mp, df_planilla, df_cob_km, df_cob_bovedas)
         
-        generate_output(result_df, output_entry, log_widget)
-        generate_no_conciliados_output(df_no_conciliados, output_entry, log_widget)
+        output_path = os.path.join(os.getcwd(), "conciliacion.xlsx")  # Usar un nombre de archivo fijo
+        generate_output(df_result, output_path, log_widget)
         
-        log_message(log_widget, "Proceso finalizado.")
+        log_message(log_widget, "Proceso finalizado.")   
+
 
 def generate_no_conciliados_output(df_no_conciliados: DataFrame, output_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
     """Guarda el DataFrame de registros no conciliados en un archivo XLSX."""
@@ -191,51 +188,47 @@ def run_application() -> None:
     """Función principal para ejecutar la aplicación."""
     root: tk.Tk = tk.Tk()
     root.title("Conciliación de Cobranzas")
-    root.geometry("770x450")
+    root.geometry("850x500")
 
     log_widget: scrolledtext.ScrolledText = scrolledtext.ScrolledText(root, wrap=tk.WORD, height=10, bg="#ffffff", fg="#333333", font=("Helvetica", 10))
     log_widget.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
 
     frame: tk.Frame = tk.Frame(root)
-    frame.pack(pady=10)
-
-    cob_label: tk.Label = tk.Label(frame, text="Cobranzas Electrónicas:")
-    cob_label.grid(row=0, column=0, sticky="e")
-    cob_entry: tk.Entry = tk.Entry(frame, width=50)
-    cob_entry.grid(row=0, column=1, padx=10)
-    cob_button: tk.Button = tk.Button(frame, text="Seleccionar", command=lambda: select_file(cob_entry, log_widget, "Cobranzas Electrónicas"))
-    cob_button.grid(row=0, column=2)
+    frame.pack(pady=10, anchor='w')  # Alinea a la izquierda con anchor='w'
 
     mp_label: tk.Label = tk.Label(frame, text="Mercado Pago:")
-    mp_label.grid(row=1, column=0, sticky="e")
+    mp_label.grid(row=0, column=0, sticky="w")
     mp_entry: tk.Entry = tk.Entry(frame, width=50)
-    mp_entry.grid(row=1, column=1, padx=10)
+    mp_entry.grid(row=0, column=1, padx=10)
     mp_button: tk.Button = tk.Button(frame, text="Seleccionar", command=lambda: select_file(mp_entry, log_widget, "Mercado Pago"))
-    mp_button.grid(row=1, column=2)
+    mp_button.grid(row=0, column=2)
 
     planilla_label: tk.Label = tk.Label(frame, text="Planilla 1:")
-    planilla_label.grid(row=2, column=0, sticky="e")
+    planilla_label.grid(row=1, column=0, sticky="w")
     planilla_entry: tk.Entry = tk.Entry(frame, width=50)
-    planilla_entry.grid(row=2, column=1, padx=10)
+    planilla_entry.grid(row=1, column=1, padx=10)
     planilla_button: tk.Button = tk.Button(frame, text="Seleccionar", command=lambda: select_file(planilla_entry, log_widget, "Planilla 1"))
-    planilla_button.grid(row=2, column=2)
+    planilla_button.grid(row=1, column=2)
 
-    output_label: tk.Label = tk.Label(frame, text="Archivo de salida:")
-    output_label.grid(row=3, column=0, sticky="e")
+    cob_km_label: tk.Label = tk.Label(frame, text="Cobranzas Electrónicas KM1151:")
+    cob_km_label.grid(row=2, column=0, sticky="w")
+    cob_km_entry: tk.Entry = tk.Entry(frame, width=50)
+    cob_km_entry.grid(row=2, column=1, padx=10)
+    cob_km_button: tk.Button = tk.Button(frame, text="Seleccionar", command=lambda: select_file(cob_km_entry, log_widget, "Cobranzas Electrónicas KM1151"))
+    cob_km_button.grid(row=2, column=2)
 
-    default_output_path: str = os.path.join(os.getcwd(), "conciliacion.xlsx")
-    output_entry: tk.Entry = tk.Entry(frame, width=50)
-    output_entry.grid(row=3, column=1, padx=10)
-    output_entry.insert(0, default_output_path) 
-    output_button: tk.Button = tk.Button(frame, text="Seleccionar", command=lambda: select_output_file(output_entry, log_widget))
-    output_button.grid(row=3, column=2)
+    cob_bovedas_label: tk.Label = tk.Label(frame, text="Cobranzas Electrónicas LAS BOVEDAS:")
+    cob_bovedas_label.grid(row=3, column=0, sticky="w")
+    cob_bovedas_entry: tk.Entry = tk.Entry(frame, width=50)
+    cob_bovedas_entry.grid(row=3, column=1, padx=10)
+    cob_bovedas_button: tk.Button = tk.Button(frame, text="Seleccionar", command=lambda: select_file(cob_bovedas_entry, log_widget, "Cobranzas Electrónicas LAS BOVEDAS"))
+    cob_bovedas_button.grid(row=3, column=2)
 
-    process_button: tk.Button = tk.Button(root, text="Ejecutar Proceso", command=lambda: run_process(cob_entry, mp_entry, planilla_entry, output_entry, log_widget), bg="#4CAF50", fg="white", font=("Helvetica", 12))
+    process_button: tk.Button = tk.Button(root, text="Ejecutar Proceso", command=lambda: run_process(mp_entry, planilla_entry, cob_km_entry, cob_bovedas_entry, log_widget), bg="#4CAF50", fg="white", font=("Helvetica", 12))
     process_button.pack(pady=20)
 
     root.mainloop()
 
-
-
 if __name__ == "__main__":
     run_application()
+
