@@ -7,20 +7,24 @@ def log_message(log_widget, message: str) -> None:
     """Registra mensajes en el widget de log y en la consola."""
     if isinstance(log_widget, tk.Widget):
         log_widget.insert(tk.END, message + "\n")
-        log_widget.update_idletasks()  # Asegura que el log se actualiza en tiempo real
+        log_widget.update_idletasks()
         log_widget.see(tk.END)
     print(message)
 
 def inicializar_df_resultado(df_mercado_pago: DataFrame) -> DataFrame:
-    """Inicializa el DataFrame resultado con las columnas necesarias basadas en Mercado Pago."""
-    df_result = df_mercado_pago.copy()
+    """Inicializa el DataFrame resultado con las columnas necesarias basadas en Mercado Pago y filtra operaciones relevantes."""
+    operaciones_relevantes = ['Cobro', 'Ingreso de dinero', 'Dinero recibido']
+    df_result = df_mercado_pago[df_mercado_pago['Tipo de Operación'].isin(operaciones_relevantes)].copy()
+
     df_result['Conciliación'] = ''
     df_result['Importe C.E.'] = None
     df_result['Fecha C.E.'] = None
     df_result['Dif Importe'] = None
     df_result['Dif Minutos'] = None
     df_result['Planilla'] = None
+    
     return df_result
+
 
 def marcar_coincidencias_cobranzas(df_result: DataFrame, df_cobranzas: DataFrame, conciliacion_label: str, tolerancia: int = 10) -> DataFrame:
     """Marca coincidencias basadas en Cobranzas Electrónicas y establece las conciliaciones correspondientes."""
