@@ -22,17 +22,8 @@ def select_file(entry_widget: tk.Entry, log_widget: scrolledtext.ScrolledText, f
         log_message(log_widget, f"{file_type} seleccionado: {file_path}")
 
 
-def select_output_file(entry_widget: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
-    """Abre un diálogo para seleccionar la ubicación del archivo de salida."""
-    file_path: str = filedialog.asksaveasfilename(title="Guardar archivo conciliado", defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-    if file_path:
-        entry_widget.delete(0, tk.END)
-        entry_widget.insert(0, file_path)
-        log_message(log_widget, f"Archivo de salida seleccionado: {file_path}")
-
-
 def import_cobranza_electronica(file_path: str, log_widget: scrolledtext.ScrolledText) -> DataFrame | None:
-    """Importa y limpia el archivo COBRANZAS ELECTRONICAS desde la fila 7 en adelante."""
+    """Importa y limpia el archivo COBRANZAS ELECTRONICAS desde la fila 7 en adelante, tanto de KM1151 como LAS BOVEDAS"""
     try:
         # Leer el archivo comenzando desde la fila 7
         df: DataFrame = pd.read_excel(file_path, skiprows=6)
@@ -47,8 +38,6 @@ def import_cobranza_electronica(file_path: str, log_widget: scrolledtext.Scrolle
         df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
 
         log_message(log_widget, "Cobranzas Electrónicas importado y limpiado correctamente.")
-        log_message(log_widget, f"Primeras 3 filas de Cobranzas Electrónicas:\n{df.head(3)}")
-        log_message(log_widget, f"Descripción del dataframe:\n{df.describe}")
         
         return df
     except Exception as e:
@@ -69,8 +58,6 @@ def import_mercado_pago(file_path: str, log_widget: scrolledtext.ScrolledText) -
         df['Importe'] = pd.to_numeric(df['Importe'], errors='coerce')
 
         log_message(log_widget, "Mercado Pago importado y limpiado correctamente.")
-        log_message(log_widget, f"Primeras 3 filas de Mercado Pago:\n{df.head(3)}")
-        log_message(log_widget, f"Descripción del dataframe:\n{df.describe}")
 
         return df
     except Exception as e:
@@ -108,8 +95,6 @@ def import_planilla_1(file_path: str, log_widget: scrolledtext.ScrolledText) -> 
         df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
 
         log_message(log_widget, "Planilla 1 (hoja 'Transferencias') importado correctamente.")
-        log_message(log_widget, f"Primeras 3 filas de Planilla 1:\n{df.head(3)}")
-        log_message(log_widget, f"Descripción del dataframe:\n{df.describe}")
 
         return df
     except Exception as e:
@@ -140,12 +125,11 @@ def import_files(mp_entry: tk.Entry, planilla_entry: tk.Entry, cob_km_entry: tk.
             return None, None, None, None
 
 
-
-def generate_output(result_df: DataFrame, save_path: str, log_widget: scrolledtext.ScrolledText) -> None:
+def generate_output(df: DataFrame, save_path: str, log_widget: scrolledtext.ScrolledText) -> None:
     """Guarda el DataFrame resultante en un archivo XLSX en la ubicación seleccionada por el usuario."""
     if save_path:
         try:
-            result_df.to_excel(save_path, index=False)
+            df.to_excel(save_path, index=False)
             log_message(log_widget, f"Archivo guardado exitosamente en {save_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar el archivo: {e}")
@@ -156,18 +140,22 @@ def run_process(mp_entry: tk.Entry, planilla_entry: tk.Entry, cob_km_entry: tk.E
     Ejecuta el flujo principal de la aplicación:
     1. Importa los archivos seleccionados por el usuario como DataFrames.
     2. Llama a la lógica principal para procesar los DataFrames.
-    3. Genera un archivo XLSX con el DataFrame resultante.
+    3. Genera los archivos XLSX con los DataFrames resultantes.
     """
     df_mp, df_planilla, df_cob_km, df_cob_bovedas = import_files(mp_entry, planilla_entry, cob_km_entry, cob_bovedas_entry, log_widget)
     if df_mp is not None and df_planilla is not None and df_cob_km is not None and df_cob_bovedas is not None:
         log_message(log_widget, "Iniciando procesado de ficheros...")
         
-        df_result = process_logic(log_widget, df_mp, df_planilla, df_cob_km, df_cob_bovedas)
+        df_result, df_km1151_residuo, df_bovedas_residuo = process_logic(log_widget, df_mp, df_planilla, df_cob_km, df_cob_bovedas)
         
-        output_path = os.path.join(os.getcwd(), "conciliacion.xlsx")  # Usar un nombre de archivo fijo
-        generate_output(df_result, output_path, log_widget)
+        # Generar los archivos resultantes
+        generate_output(df_result, os.path.join(os.getcwd(), "conciliacion_result.xlsx"), log_widget)
+        generate_output(df_km1151_residuo, os.path.join(os.getcwd(), "cobranzas_km1151_residuo.xlsx"), log_widget)
+        generate_output(df_bovedas_residuo, os.path.join(os.getcwd(), "cobranzas_bovedas_residuo.xlsx"), log_widget)
         
-        log_message(log_widget, "Proceso finalizado.")   
+        log_message(log_widget, "Proceso finalizado.")
+        messagebox.showinfo("Éxito", "Proceso finalizado con éxito.")
+
 
 
 def generate_no_conciliados_output(df_no_conciliados: DataFrame, output_entry: tk.Entry, log_widget: scrolledtext.ScrolledText) -> None:
@@ -181,7 +169,6 @@ def generate_no_conciliados_output(df_no_conciliados: DataFrame, output_entry: t
             log_message(log_widget, f"Archivo de no conciliados guardado exitosamente en {no_conciliados_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar el archivo de no conciliados: {e}")
-
 
 
 def run_application() -> None:

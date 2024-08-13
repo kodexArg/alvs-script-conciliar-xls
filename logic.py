@@ -3,13 +3,14 @@ import tkinter as tk
 from pandas import DataFrame
 from datetime import timedelta
 
+
 def log_message(log_widget, message: str) -> None:
     """Registra mensajes en el widget de log y en la consola."""
-    if isinstance(log_widget, tk.Widget):
-        log_widget.insert(tk.END, message + "\n")
-        log_widget.update_idletasks()
-        log_widget.see(tk.END)
+    log_widget.insert(tk.END, message + "\n")
+    log_widget.update_idletasks()
+    log_widget.see(tk.END)
     print(message)
+
 
 def inicializar_df_resultado(df_mercado_pago: DataFrame) -> DataFrame:
     """Inicializa el DataFrame resultado con las columnas necesarias basadas en Mercado Pago y filtra operaciones relevantes."""
@@ -42,7 +43,9 @@ def marcar_coincidencias_cobranzas(df_result: DataFrame, df_cobranzas: DataFrame
                 df_result.at[i, 'Conciliación'] = f'{conciliacion_label} - revisar fecha'
             else:
                 df_result.at[i, 'Conciliación'] = conciliacion_label
+
     return df_result
+
 
 def marcar_coincidencias_planilla(df_result: DataFrame, df_planilla: DataFrame) -> DataFrame:
     """Marca coincidencias basadas en la Planilla 1 y establece las conciliaciones correspondientes."""
@@ -60,32 +63,45 @@ def marcar_coincidencias_planilla(df_result: DataFrame, df_planilla: DataFrame) 
                     df_result.at[i, 'Conciliación'] = 'Planilla 1'
     return df_result
 
+
 def finalizar_resultado(df_result: DataFrame) -> DataFrame:
     """Completa la conciliación marcando los no conciliados."""
     df_result.loc[df_result['Conciliación'] == '', 'Conciliación'] = 'No Conciliado'
     return df_result
 
-def process_logic(log_widget: tk.Widget, df_mercado_pago: DataFrame, df_planilla_1: DataFrame, df_km1151: DataFrame, df_las_bovedas: DataFrame) -> DataFrame:
+
+def extract_non_conciliated(df_cobranzas: DataFrame, df_result: DataFrame, conciliacion_label: str) -> DataFrame:
+    """Extrae registros de Cobranzas Electrónicas que no fueron conciliados."""
+    conciliados = df_result[df_result['Conciliación'].str.contains(conciliacion_label, na=False)]
+    non_conciliados = df_cobranzas[~df_cobranzas['Transacción'].isin(conciliados['Operación Relacionada'])]
+    return non_conciliados
+
+
+def process_logic(log_widget: tk.Widget, df_mercado_pago: DataFrame, df_planilla_1: DataFrame, df_km1151: DataFrame, df_las_bovedas: DataFrame) -> tuple[DataFrame, DataFrame, DataFrame]:
     """Proceso principal que coordina la conciliación entre Mercado Pago, Cobranzas Electrónicas y Planilla 1."""
     log_message(log_widget, "Iniciando la conciliación.")
     
     df_result = inicializar_df_resultado(df_mercado_pago)
 
+    # Paso 1: conciliar Cobranzas KM1151
     log_message(log_widget, "Conciliando con Cobranzas Electrónicas KM1151.")
     df_result = marcar_coincidencias_cobranzas(df_result, df_km1151, 'Cobranzas KM1151')
     
+    # Paso 2: conciliar Cobranzas Las Bóvedas
     log_message(log_widget, "Conciliando con Cobranzas Electrónicas LAS BOVEDAS.")
     df_result = marcar_coincidencias_cobranzas(df_result, df_las_bovedas, 'Cobranzas Las Bovedas')
     
+    # Paso 3: conciliar con Planilla 1
     log_message(log_widget, "Conciliando con Planilla 1.")
     df_result = marcar_coincidencias_planilla(df_result, df_planilla_1)
     
     log_message(log_widget, "Finalizando el resultado.")
     df_result = finalizar_resultado(df_result)
     
+    log_message(log_widget, "Extrayendo registros no conciliados.")
+    df_km1151_residuo = extract_non_conciliated(df_km1151, df_result, 'Cobranzas KM1151')
+    df_bovedas_residuo = extract_non_conciliated(df_las_bovedas, df_result, 'Cobranzas Las Bovedas')
+
     log_message(log_widget, "Conciliación finalizada.")
     
-    return df_result
-
-
-
+    return df_result, df_km1151_residuo, df_bovedas_residuo
