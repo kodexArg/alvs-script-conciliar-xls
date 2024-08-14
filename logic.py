@@ -29,6 +29,8 @@ def inicializar_df_resultado(df_mercado_pago: DataFrame) -> DataFrame:
 
 def marcar_coincidencias_cobranzas(df_result: DataFrame, df_cobranzas: DataFrame, conciliacion_label: str, tolerancia: int = 10) -> DataFrame:
     """Marca coincidencias basadas en Cobranzas Electrónicas y establece las conciliaciones correspondientes."""
+    df_cobranzas['Conciliado'] = False  # Inicializa la columna 'Conciliado' como False
+
     for i, row in df_result.iterrows():
         match = df_cobranzas[df_cobranzas['Transacción'] == row['Operación Relacionada']]
         if not match.empty:
@@ -44,11 +46,16 @@ def marcar_coincidencias_cobranzas(df_result: DataFrame, df_cobranzas: DataFrame
             else:
                 df_result.at[i, 'Conciliación'] = conciliacion_label
 
+            # Marca la fila correspondiente en df_cobranzas como conciliada
+            df_cobranzas.at[match.index[0], 'Conciliado'] = True
+
     return df_result
 
 
 def marcar_coincidencias_planilla(df_result: DataFrame, df_planilla: DataFrame) -> DataFrame:
     """Marca coincidencias basadas en la Planilla 1 y establece las conciliaciones correspondientes."""
+    df_planilla['Conciliado'] = False  # Inicializa la columna 'Conciliado' como False
+
     for i, row in df_result.iterrows():
         if row['Conciliación'] == '':
             match = df_planilla[df_planilla['Nro Operación'] == row['Operación Relacionada']]
@@ -61,6 +68,10 @@ def marcar_coincidencias_planilla(df_result: DataFrame, df_planilla: DataFrame) 
                     df_result.at[i, 'Conciliación'] = 'Planilla 1 - revisar monto'
                 else:
                     df_result.at[i, 'Conciliación'] = 'Planilla 1'
+
+                # Marca la fila correspondiente en df_planilla como conciliada
+                df_planilla.at[match.index[0], 'Conciliado'] = True
+
     return df_result
 
 
@@ -70,10 +81,9 @@ def finalizar_resultado(df_result: DataFrame) -> DataFrame:
     return df_result
 
 
-def extract_non_conciliated(df_cobranzas: DataFrame, df_result: DataFrame, conciliacion_label: str) -> DataFrame:
+def extract_non_conciliated(df_cobranzas: DataFrame) -> DataFrame:
     """Extrae registros de Cobranzas Electrónicas que no fueron conciliados."""
-    conciliados = df_result[df_result['Conciliación'].str.contains(conciliacion_label, na=False)]
-    non_conciliados = df_cobranzas[~df_cobranzas['Transacción'].isin(conciliados['Operación Relacionada'])]
+    non_conciliados = df_cobranzas[df_cobranzas['Conciliado'] == False].copy()
     return non_conciliados
 
 
@@ -99,8 +109,8 @@ def process_logic(log_widget: tk.Widget, df_mercado_pago: DataFrame, df_planilla
     df_result = finalizar_resultado(df_result)
     
     log_message(log_widget, "Extrayendo registros no conciliados.")
-    df_km1151_residuo = extract_non_conciliated(df_km1151, df_result, 'Cobranzas KM1151')
-    df_bovedas_residuo = extract_non_conciliated(df_las_bovedas, df_result, 'Cobranzas Las Bovedas')
+    df_km1151_residuo = extract_non_conciliated(df_km1151)
+    df_bovedas_residuo = extract_non_conciliated(df_las_bovedas)
 
     log_message(log_widget, "Conciliación finalizada.")
     

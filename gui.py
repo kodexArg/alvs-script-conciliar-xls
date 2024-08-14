@@ -23,7 +23,7 @@ def select_file(entry_widget: tk.Entry, log_widget: scrolledtext.ScrolledText, f
 
 
 def import_cobranza_electronica(file_path: str, log_widget: scrolledtext.ScrolledText) -> DataFrame | None:
-    """Importa y limpia el archivo COBRANZAS ELECTRONICAS desde la fila 7 en adelante, tanto de KM1151 como LAS BOVEDAS"""
+    """Importa y limpia el archivo COBRANZAS ELECTRONICAS desde la fila 7 en adelante, tanto de KM1151 como LAS BOVEDAS, excluyendo totales."""
     try:
         # Leer el archivo comenzando desde la fila 7
         df: DataFrame = pd.read_excel(file_path, skiprows=6)
@@ -37,12 +37,18 @@ def import_cobranza_electronica(file_path: str, log_widget: scrolledtext.Scrolle
         # Convertir columnas relevantes al tipo adecuado, por ejemplo, la columna de fecha
         df['Fecha'] = pd.to_datetime(df['Fecha'], errors='coerce')
 
+        # Eliminar filas donde 'Transacción' sea NaN o no sea numérico (posibles totales)
+        df = df[df['Transacción'].apply(lambda x: pd.notna(x) and str(x).isdigit())]
+
         log_message(log_widget, "Cobranzas Electrónicas importado y limpiado correctamente.")
         
         return df
     except Exception as e:
         messagebox.showerror("Error", f"Error al importar y limpiar Cobranzas Electrónicas: {e}")
         return None
+
+
+
 
 
 def import_mercado_pago(file_path: str, log_widget: scrolledtext.ScrolledText) -> DataFrame | None:
